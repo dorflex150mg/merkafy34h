@@ -9,6 +9,7 @@
 #include "building.h"
 #include "level.h"
 #include "level_data.h"
+#include "laser_gun.h"
 
 #include "ship.h"
 #include "animation.h"
@@ -16,6 +17,7 @@
 #include "enemy_pos.h"
 #include "building_pos.h"
 #include "building_pos_data.h"
+#include "game_controls.h"
 
 #define MAXPJTL			65536
 #define MAXBDNG			1024
@@ -53,6 +55,7 @@ Building *buildings[MAXBDNG] = {nullptr};
 Projectile *projectiles[MAXPJTL] = {nullptr};
 EnemyProjectile *enemyProjectiles[MAXPJTL] = {nullptr};
 EnemyMissile *enemyMissiles[MAXMSSL] = {nullptr};
+Target *all_targets[MAXENMY + MAXBDNG + MAXPJTL] = {nullptr}; 
 Animation *explosions[MAXANMN] = {nullptr};
 Animation *hits[MAXANMN] = {nullptr};
 MovementStrategy *test[10] = {nullptr};
@@ -67,6 +70,7 @@ SDL_Rect projectile_rects[MAXPJTL];
 SDL_Rect enemy_projectile_rects[MAXPJTL];
 SDL_Rect enemy_missile_rects[MAXMSSL];
 SDL_Rect boss_rect;
+SDL_Rect laser_rect;
 
 /* drawable surfaces for each entity */
 SDL_Texture *enemy_imgs[MAXENMY];
@@ -101,6 +105,8 @@ SDL_Rect inner_health_bar;
 Level *levels[MAXLVL];
 Level *cur_level;
 
+int MAXTARGETSSIZE;
+
 int scroll_speed;
 int scroll_val = 0;
 int n_projectiles = 0;
@@ -110,9 +116,12 @@ int n_buildings = 0;
 int n_enemies = 0;
 int n_explosions = 0;
 int n_hits = 0;
+int laser_posx;
 int scroll_slow;
 int imgs_index;
 long frame_cnt;
+
+bool laser_firing = false;
 
 void init_animations() {
    small_explosion = IMG_LoadTexture(renderer, SMALLEXPLOSIONPATH);
@@ -173,6 +182,7 @@ void create_hit(int posx, int posy){
 void spawn_boss() {
    if(cur_level->isBossLevel()) {
       boss = cur_level->getBoss();
+      printf("loading boss icon %s\n", boss->icon_path);
       boss_img = IMG_LoadTexture(renderer, boss->icon_path);  
       boss_rect.x = SCREEN_HEIGHT/4;
       boss_rect.y = SCREEN_WIDTH/2 - (boss->getWidth())/2;
@@ -202,12 +212,19 @@ void goToNextLevel(Ship *ship) {
    n_hits = 0;
    /* building and enemy initialization do nothing 
     * when the coming level is a boss level */
+   printf("%s\n", "initializing buildings");
    init_buildings(cur_level->getLevel());
+   printf("%s\n", "initializing enemies");
    init_enemies(cur_level->getLevel());
    /* boss spawning does nothing when the coming
     * level is not a boss level */
+   printf("%s\n", "spawning boss");
    spawn_boss();
+   printf("%s\n", "initializing animations");
+   fflush(stdout);
    init_animations();
+   printf("%s\n", "reseting ship");
+   fflush(stdout);
    ship->setStartPosition();
 }
 
@@ -220,8 +237,12 @@ void fire(Ship *ship){
    n_projectiles++;
 }
 
+    
+
+
 void building_fire(Building *building, int ship_posx, int ship_posy) {
    if(building->getFireType() == FIREPJTLTYPE) {
+   printf("%s\n", "building fire projectile\n");
       EnemyProjectile *projectile = building->fireProjectile(ship_posx, ship_posy);
       if(projectile != nullptr) {
          enemyProjectiles[n_enemy_projectiles % MAXPJTL] = projectile;
@@ -231,12 +252,17 @@ void building_fire(Building *building, int ship_posx, int ship_posy) {
          n_enemy_projectiles++;
        } 
    } else if(building->getFireType() == FIREMSSLTYPE) {
+      printf("%s\n", "building fire missile");
       EnemyMissile *missile = building->fireMissile();
       if(missile != nullptr) {
+         printf("%s\n", "building missile has been fired");
          enemyMissiles[n_enemy_missiles % MAXMSSL] = missile;
+         printf("%s\n", "building missile added to array");
          enemy_missile_imgs[n_enemy_missiles % MAXMSSL] = IMG_LoadTexture(renderer, missile->icon_path);
+         printf("%s\n", "building missile image rendered");
          enemy_missile_rects[n_enemy_missiles % MAXMSSL].w = missile->getWidth();
          enemy_missile_rects[n_enemy_missiles % MAXMSSL].h = missile->getHeight();
+         printf("%s\n", "missile rect added");
          n_enemy_missiles++;
       }
    } 
@@ -245,6 +271,7 @@ void building_fire(Building *building, int ship_posx, int ship_posy) {
 void spawn_enemy(int x, int y, int type, int move) {
    /* in case n_enemies get greater than MAXENMY */
    enemies[n_enemies % MAXENMY] = new Enemy(x, y, type, move);
+   all_targets[n_enemies] = enemies[n_enemies]->getTarget();
    enemy_imgs[n_enemies % MAXENMY] = IMG_LoadTexture(renderer, enemies[n_enemies % MAXENMY]->icon_path);
    enemy_rects[n_enemies % MAXENMY].h = enemies[n_enemies % MAXENMY]->getHeight();
    enemy_rects[n_enemies % MAXENMY].w = enemies[n_enemies % MAXENMY]->getWidth();
@@ -395,12 +422,35 @@ inline void checkHitBoss(Projectile *p, Boss *boss) {
      boss->getHeight()){
         create_hit(p->getPosx(), p->getPosy());
         bool is_dead = boss->takeDamage(p->getDamage());
+        printf("boss took damage\n");
         p->active = false;
-        if(is_dead) {
+        if(boss->isDead()) {
            create_boss_explosions(boss);
         }
     }
 }
+
+inline int checkLaserHitTarget(Target *targets[], int posx, LaserGun laser_gun) {
+   for(int i = 0; i < MAXTARGETSSIZE; i++) { 
+      if(targets[i] != nullptr) {
+	 printf("laser target being checked - laser x: %d, targetx: %d, target end: %d\n", posx, targets[i]->getPosx(), targets[i]->getPosx() + targets[i]->getWidth());
+         if(posx > targets[i]->getPosx() &&
+           posx < targets[i]->getPosx() + 
+           targets[i]->getWidth()) { 
+	      printf("target found - laser ends at %d\n", targets[i]->getPosy());
+              targets[i]->takeDamage(laser_gun.getDamage()); 
+              /* if a target has been hit, end the loop returning 
+               * the targets x */
+              return targets[i]->getPosy();
+         }
+      }
+   }
+   //return SCREEN_HEIGHT;
+   return 0;
+}
+   
+
+      
 
 void update(Ship *ship, SDL_Rect *ship_rect){
    /* updating incoming buildings */
@@ -409,11 +459,11 @@ void update(Ship *ship, SDL_Rect *ship_rect){
       if((cur_buildings_pos[i]).active) {
          int diff = scroll_val + get_buildings_pos(cur_level->getLevel())[i].scroll;
          if(diff > 0) {
-            printf("%s\n", "creating building");
             buildings[i] = new Building(get_buildings_pos(cur_level->getLevel())[i].x, diff, get_buildings_pos(cur_level->getLevel())[i].type);
-            printf("%s\n", "loading image");
+	    /* buildings are added to all targets after enemies 
+	     * that's why its index starts on MAXENMY */
+	    all_targets[MAXENMY + i] = buildings[i]->getTarget(); 
             building_imgs[i] = IMG_LoadTexture(renderer, buildings[i]->icon_path);
-            printf("%s\n", "setting rect positions");
             building_rects[i].w = buildings[i]->getWidth(); 
             building_rects[i].h = buildings[i]->getHeight(); 
             n_buildings++;
@@ -433,6 +483,7 @@ void update(Ship *ship, SDL_Rect *ship_rect){
             appropriately */
             printf("%s\n", "active building - firing");
             building_fire(buildings[i], ship->getPosx(), ship->getPosy()); 
+            printf("%s\n", "active building - checking out of screen");
             if(buildings[i]->getPosy() > SCREEN_HEIGHT) {
                buildings[i]->active = false;
             }
@@ -468,6 +519,10 @@ void update(Ship *ship, SDL_Rect *ship_rect){
               n_enemy_projectiles++;
            } else if(fired_missile != nullptr){
               enemyMissiles[n_enemy_missiles % MAXPJTL] = fired_missile;
+	     /* missiles are added to all targets after enemies 
+	      * and buildings that's why its index 
+	      * starts on MAXENMY + MAXBDNG */
+	      all_targets[MAXENMY + MAXBDNG + n_enemy_missiles] = fired_missile->getTarget();
               enemy_missile_imgs[n_enemy_missiles % MAXPJTL] = IMG_LoadTexture(renderer, fired_missile->icon_path);
               enemy_missile_rects[n_enemy_missiles % MAXPJTL].w = fired_missile->getWidth(); 
               enemy_missile_rects[n_enemy_missiles% MAXPJTL].h =  fired_missile->getHeight();
@@ -484,6 +539,9 @@ void update(Ship *ship, SDL_Rect *ship_rect){
    /* updating boss */
    if(cur_level->isBossLevel()) {
       if(!boss->isDead()) {
+	 boss->move();
+	 boss_rect.x = boss->getPosx();
+	 boss_rect.y = boss->getPosy();
          EnemyProjectile *fired_projectile = boss->fireProjectile();
          EnemyMissile *fired_mssl = boss->fireMissile();
          if(fired_projectile != nullptr){
@@ -520,6 +578,15 @@ void update(Ship *ship, SDL_Rect *ship_rect){
       //if(projectiles[n_projectiles] == nullptr) {
       //   n_projectiles--;
       //}
+   }
+   /* updating laser */
+   if(laser_firing) {
+      printf("Updating laser\n");
+      int y = checkLaserHitTarget(all_targets, ship->posx, ship->getLaserGun());
+      laser_rect.x = ship->getPosx();
+      laser_rect.y = y;
+      laser_rect.w = ship->getLaserGun().getWidth();
+      laser_rect.h = ship->getPosy() - y;
    }
    
 
@@ -606,8 +673,11 @@ void update(Ship *ship, SDL_Rect *ship_rect){
          }
       } else {             
          if(scroll_val > cur_level->getLength()){
+             printf("level is over\n");
              cur_level->finish();
+             printf("changing level\n");
              goToNextLevel(ship);
+	     printf("level changed\n");
          }
       }
    }
@@ -615,6 +685,16 @@ void update(Ship *ship, SDL_Rect *ship_rect){
 
 void draw(SDL_Renderer *renderer, SDL_Surface *surface, SDL_Rect *ship_rect, SDL_Window *window){
    SDL_RenderClear(renderer);
+   if(laser_firing) {
+      SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF );  
+      SDL_RenderFillRect(renderer, &laser_rect);
+   }
+
+   if(cur_level->isBossLevel()) {
+       if(!boss->isDead()) {
+           draw_target(boss->icon_path, boss_img, &boss_rect); 
+       }
+   }
    for(int i = 0; i < n_projectiles; i++) {
       if(projectiles[i]->active) {
          draw_projectile(projectile_imgs[i], &projectile_rects[i]);
@@ -695,6 +775,8 @@ int main(int argc, char* args[]) {
    frame_cnt = 0l;
    scroll_speed = 1;
    scroll_slow = 8;
+
+   MAXTARGETSSIZE = MAXENMY + MAXBDNG + MAXMSSL;
    
    
    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
@@ -754,7 +836,6 @@ int main(int argc, char* args[]) {
          else if (keyboard_state_array[SDL_SCANCODE_DOWN]) {
             ship.goDown();
          }
-     
          if (keyboard_state_array[SDL_SCANCODE_RIGHT]) {
             ship.goRight();
          }
@@ -767,9 +848,20 @@ int main(int argc, char* args[]) {
          if(keyboard_state_array[SDL_SCANCODE_SPACE]) {
             fire(&ship);
          }
+	 laser_firing = false;
+	 if(keyboard_state_array[SDL_SCANCODE_LALT]) {
+            printf("Detected laser button press\n");
+	    if(ship.hasLaserGun()) {
+               printf("Setting laser firing to true\n");
+	       laser_firing = true;
+	    }
+	 }
+
+	 if(keyboard_state_array[SDL_SCANCODE_M]) {
+	    switch_sound();
+	 }
       }
       play_theme();
-      printf("updating\n");
       update(&ship, &ship_rect);
       draw(renderer, surface, &ship_rect, window);
       if(ship.cur_health <= 0) {

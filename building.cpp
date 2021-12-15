@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "building.h"
 #include "boss.h" 
 
@@ -13,6 +14,7 @@ Building::Building(int s_posx, int s_posy, int s_type) {
          w = SAMW;
          h = SAMH;
          health = SAMHEALTH;
+	 target.health = SAMHEALTH;
          fire_interval = SAMFIREINTV;
          break;
       case TYPEAAGUN:
@@ -20,15 +22,21 @@ Building::Building(int s_posx, int s_posy, int s_type) {
          w = AAGUNW;
          h = AAGUNH;
          health = AAGUNHEALTH;
+	 target.health = AAGUNHEALTH;
          fire_interval = AAGFIREINTV;
       default:
          icon_path = SAMPATH;
          w = SAMW;
          h = SAMH;
          health = SAMHEALTH;
+	 target.health = SAMHEALTH;
          fire_interval = SAMFIREINTV;
          break;
    }
+}
+
+Target *Building::getTarget(void) {
+   return &target;
 }
 
 int Building::getFireType(void) {
@@ -46,7 +54,6 @@ EnemyMissile *Building::fireMissile(void){
          if(fire_counter % fire_interval == 0) {
             return new EnemyMissile(posx, posy, TYPEMSSL1);  
          }
-         break;
       default:
          return nullptr;
    }

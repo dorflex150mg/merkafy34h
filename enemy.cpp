@@ -11,7 +11,9 @@ Enemy::Enemy(int s_posx, int s_posy, int s_type, int t_movement) {
    fire_counter = 0;
    back = false;
    posx = s_posx;
+   target.posx = s_posx;
    posy = s_posy;
+   target.posy = s_posy;
    init_posx = s_posx;
    init_posy = s_posy;
    movement = t_movement;
@@ -22,7 +24,9 @@ Enemy::Enemy(int s_posx, int s_posy, int s_type, int t_movement) {
          icon_path = ICONM1;
          h = HEIGHTM1;
          w = WIDTHM1;
+	 target.w = WIDTHM1;
          health = HEALTHM1;
+         target.health = HEALTHM1;
          speed = SPEEDM1;
          fire_interval = FIREINTVM1;
          collision_damage = COLDMGM1;
@@ -32,7 +36,9 @@ Enemy::Enemy(int s_posx, int s_posy, int s_type, int t_movement) {
          icon_path = ICONM2;
          h = HEIGHTM2;
          w = WIDTHM2;
+	 target.w = WIDTHM2;
          health = HEALTHM2;
+         target.health = HEALTHM2;
          speed = SPEEDM2;
          fire_interval = FIREINTVM2;
          collision_damage = COLDMGM2;
@@ -49,6 +55,10 @@ Enemy::Enemy(int s_posx, int s_posy, int s_type, int t_movement) {
    limit_top = -h;
    limit_left = -w;
 }
+
+Target *Enemy::getTarget(void) {
+   return &target;
+}
  
 void Enemy::move(void){
    movement_counter++;
@@ -58,26 +68,34 @@ void Enemy::move(void){
       if(movement == 1) {
          if(init_posx < SCREEN_WIDTH/2){
             posx++;
+	    target.posx++;
          } else {
             posx--;
+            target.posx--;
          }
          posy++;
+	 target.posy++;
       } else if(movement == 2) {
          if(posx < init_posx + WALLMOVE2 && !back) {
             posx++;
+            target.posx++;
          } else if (posx > init_posx) {
             posx--;
+	    target.posx--;
             back = true;
          } else {
             back = false;
          }
          posy++;
+	 target.posy++;
       } else if(movement == 3) {
          if(posy < (SCREEN_HEIGHT/2) && !back) {
             posy++;
+	    target.posy++;
          } else {
             back = true;
             posy--;
+	    target.posy--;
          }
       }
    }

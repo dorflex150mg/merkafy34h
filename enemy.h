@@ -34,6 +34,7 @@
 
 class Enemy : public Target {
    public:
+      Target target;
       static const int limit_bottom = SCREEN_HEIGHT;
       static const int limit_right = SCREEN_WIDTH;
       const char* icon_path; 
@@ -52,6 +53,7 @@ class Enemy : public Target {
       bool back;
 
       Enemy(int s_posx, int s_posy, int s_type, int t_movement);
+      Target *getTarget(void);
       void move(void);
       EnemyProjectile *fire_projectile(void); 
       EnemyMissile *fire_missile(void);

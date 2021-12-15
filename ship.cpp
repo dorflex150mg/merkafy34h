@@ -140,6 +140,15 @@ bool Ship::checkCollisionMissile(EnemyMissile *enemy) {
    return true; 
 }
 
+bool Ship::hasLaserGun(void) {
+   //TODO: false until the correct pick up gets picked
+   return true;
+}
+
+LaserGun Ship::getLaserGun(void) {
+   return laser_gun;
+}
+
 Projectile *Ship::fire(void){
    int x_start = posx;
    return new Projectile(x_start, posy);

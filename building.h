@@ -35,8 +35,10 @@ class Building : public Target {
       int fire_direction_counter;
       int fire_direction;
       const char *icon_path;
+      Target target;
 
       Building(int s_posx, int s_posy, int s_type);
+      Target *getTarget(void);
       int getFireType(void);
       EnemyMissile *fireMissile(void);
       EnemyProjectile *fireProjectile(int ship_posx, int ship_posy); 

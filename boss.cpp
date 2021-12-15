@@ -1,7 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "boss.h"
 #include "enemy.h"
 #include "projectile.h"
+#include "screen.h"
 #include "movement_strategy.h"
 
 Boss::Boss(int type) {
@@ -11,22 +13,27 @@ Boss::Boss(int type) {
    inc_y = false;
    switch(type) {
       case TYPEBOSS1:
+	 printf("%s\n", "constructing boss type 1");
+         icon_path = BOSS1PATH; 
 	 fire_counters = (int *) malloc(sizeof(int) * 2);
+	 posx = SCREEN_WIDTH/2;
+	 posy = SCREEN_HEIGHT/2;
          health = HEALTHBOSS1;
          speed = SPEEDBOSS1;
-         width = WIDTHBOSS1;
-         height = HEIGHTBOSS1;
+         w = WIDTHBOSS1;
+         h = HEIGHTBOSS1;
          collision_dmg = COLDMGBOSS1;
 	 proj_fire_interval = FIREINTVPROJBOSS1;
 	 mssl_fire_interval = FIREINTVMSSLBOSS1;
+	 printf("%s\n", "setting movement strategy");
          movement_strategies[0] = new MovementStrategy(MOVEV);
          movement_strategies[1] = new MovementStrategy(MOVEHITWALLS);
          break;
       default: 
          health = HEALTHBOSS1;
          speed = SPEEDBOSS1;
-         width = WIDTHBOSS1;
-         height = HEIGHTBOSS1;
+         w = WIDTHBOSS1;
+         h  = HEIGHTBOSS1;
          collision_dmg = COLDMGBOSS1;
          break;
    }
@@ -82,6 +89,7 @@ EnemyMissile *Boss::fireMissile(void){
 }
 
 bool Boss::isDead(void) {
+   printf("%s%d\n", "health boss: ", health);
    if(health <= 0) {
       return true; 
    }

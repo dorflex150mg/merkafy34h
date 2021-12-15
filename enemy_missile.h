@@ -29,8 +29,11 @@ class EnemyMissile : public Target {
       int limit_left;
       int health;
       int damage;
+      Target target;
 
       EnemyMissile(int posx, int posy, int stype); 
+      
+      Target *getTarget(void);
 
       int getHitBoxPosx(void);
       int getHitBoxWidth();

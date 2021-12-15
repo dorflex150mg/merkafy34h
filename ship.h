@@ -4,6 +4,7 @@
 #include "projectile.h"
 #include "enemy.h"
 #include "enemy_missile.h"
+#include "laser_gun.h"
 
 #define SHIP_WIDTH	48
 #define SHIP_HEIGHT	80
@@ -22,6 +23,7 @@ class Ship {
       int max_health;
       int cur_health;
       bool god_mode;
+      LaserGun laser_gun;
 
       Ship(void);
       int getPosx(void);
@@ -40,6 +42,8 @@ class Ship {
       int getHealth(void);
       bool checkCollision(Enemy *enemy);
       bool checkCollisionMissile(EnemyMissile *enemy);
+      bool hasLaserGun(void);
+      LaserGun getLaserGun(void);
       Projectile *fire(void);
 };
 #endif

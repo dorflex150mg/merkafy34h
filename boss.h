@@ -12,8 +12,8 @@
 #define TYPEBOSS1		1
 
 #define SPEEDBOSS1		10
-#define WIDTHBOSS1		48
-#define HEIGHTBOSS1		60
+#define WIDTHBOSS1		90
+#define HEIGHTBOSS1		68
 #define COLDMGBOSS1		30
 #define FIREINTVPROJBOSS1	50
 #define FIREINTVMSSLBOSS1	125
@@ -21,6 +21,8 @@
 
 #define CANNON1RELATIVEX	10
 #define CANNON2RELATIVEX	20
+
+#define BOSS1PATH		"assets/boss1.png"	
 
 class EnemyProjectile;
 class EnemyMissile;
@@ -30,10 +32,7 @@ class Boss : public Target {
       MovementStrategy *movement_strategies[2];
       int *fire_counters;
       const char *icon_path;
-      int health;
       int speed;
-      int width;
-      int height;
       int collision_dmg;
       int type;
       int n_move_strategies;

@@ -7,6 +7,7 @@ EnemyMissile::EnemyMissile(int s_posx, int s_posy, int s_type){
    posx = s_posx;
    posy = s_posy;
    health = 5;      
+   target.health = 5;
    init_posx = s_posx;
    init_posy = s_posy;
    active = true;
@@ -31,6 +32,10 @@ EnemyMissile::EnemyMissile(int s_posx, int s_posy, int s_type){
    and x < -w */
    limit_top = -h;
    limit_left = -w;
+}
+
+Target *EnemyMissile::getTarget(void) {
+   return &target;
 }
 
 int EnemyMissile::getHitBoxPosx(void){

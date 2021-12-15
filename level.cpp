@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "themes.h"
 #include "level.h"
 #include "level_data.h"
@@ -18,7 +19,10 @@ Level::Level(int s_n_level){
       case 1:
          theme_path = (char*) THEMELVL1;
          is_boss = true;
+	 printf("creating getting boss type 1\n");
          boss = new Boss(TYPEBOSS1);
+	 n_buildings = 0;
+	 n_enemies = 0;
          break;
       case 2:
          theme_path = (char*) THEMELVL2;
@@ -26,10 +30,14 @@ Level::Level(int s_n_level){
          length = LENGTHLVL2;
          n_buildings = NBDNG2;
          n_enemies = NENMY2;
+	 n_buildings = 0;
+	 n_enemies = 0;
          break;
       case 3:
          theme_path = (char*) THEMELVL3;
          is_boss = true;
+	 n_buildings = 0;
+	 n_enemies = 0;
          break;
       case 4:
          theme_path = (char*) THEMELVL4;
@@ -41,6 +49,8 @@ Level::Level(int s_n_level){
       case 5:
          theme_path = (char*) THEMELVL5;
          is_boss = true;
+	 n_buildings = 0;
+	 n_enemies = 0;
          break;
       case 6:
          theme_path = (char*) THEMELVL6;
@@ -52,6 +62,8 @@ Level::Level(int s_n_level){
       case 7:
          theme_path = (char*) THEMELVL7;
          is_boss = true;
+	 n_buildings = 0;
+	 n_enemies = 0;
          break;
       case 8:
          theme_path = (char*) THEMELVL8;
@@ -63,6 +75,8 @@ Level::Level(int s_n_level){
       case 9:
          theme_path = (char*) THEMELVL8;
          is_boss = true;
+	 n_buildings = 0;
+	 n_enemies = 0;
          break;
       default:
          theme_path = (char*) THEMELVL0;
