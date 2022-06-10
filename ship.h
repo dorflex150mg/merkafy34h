@@ -11,6 +11,8 @@
 #define MAX_HEALTH	100
 
 #define SHIPPATH 	"assets/f35.png"
+#define SHIPPATHL 	"assets/f35l.png"
+#define SHIPPATHR 	"assets/f35r.png"
 
 class Ship {
 
@@ -23,7 +25,7 @@ class Ship {
       int max_health;
       int cur_health;
       bool god_mode;
-      LaserGun laser_gun;
+      LaserGun *laser_gun;
 
       Ship(void);
       int getPosx(void);
@@ -36,6 +38,8 @@ class Ship {
       void goUp(void);
       void goDown(void);
       char *getIconPath(void);
+      char *getIconPathRight(void);
+      char *getIconPathLeft(void);
       int getCenterPosx(void);
       int getCenterPosy(void);
       void takeDamage(int damage);
@@ -43,7 +47,7 @@ class Ship {
       bool checkCollision(Enemy *enemy);
       bool checkCollisionMissile(EnemyMissile *enemy);
       bool hasLaserGun(void);
-      LaserGun getLaserGun(void);
+      LaserGun *getLaserGun(void);
       Projectile *fire(void);
 };
 #endif

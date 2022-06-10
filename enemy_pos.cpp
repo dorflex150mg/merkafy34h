@@ -43,8 +43,15 @@ void init_enemies(int level) {
              enemies_pos[level][i].move = 3;
              enemies_pos[level][i].type = 2;
         }
+	/* this is added to populate type 3 */
+	if(i % 7 == 0) {
+	    enemies_pos[level][i].move = 2;
+	    enemies_pos[level][i].type = 3;
+	}
       }
-      enemies_pos[0][0].x = 50;
+      enemies_pos[0][0].move = 2;
+      enemies_pos[0][0].type = 3;
+      enemies_pos[0][0].x = 10;
       enemies_pos[0][1].x = 500;
       enemies_pos[0][2].x = 700;
       enemies_pos[0][3].x = 900;

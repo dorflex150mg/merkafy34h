@@ -13,6 +13,7 @@ Ship::Ship(void) {
    max_health = MAX_HEALTH;
    cur_health = max_health; 
    god_mode = true;
+   laser_gun = new LaserGun();
    printf("%s\n", "ship created");
 }
 
@@ -83,6 +84,15 @@ char *Ship::getIconPath(void) {
    return (char*) SHIPPATH;
 }
 
+
+char *Ship::getIconPathLeft(void) {
+   return (char*) SHIPPATHL;
+}
+
+char *Ship::getIconPathRight(void) {
+   return (char*) SHIPPATHR;
+}
+
 int Ship::getCenterPosx(void){
    return posx + SHIP_WIDTH/2;
 }
@@ -145,7 +155,7 @@ bool Ship::hasLaserGun(void) {
    return true;
 }
 
-LaserGun Ship::getLaserGun(void) {
+LaserGun *Ship::getLaserGun(void) {
    return laser_gun;
 }
 

@@ -44,6 +44,18 @@ Enemy::Enemy(int s_posx, int s_posy, int s_type, int t_movement) {
          collision_damage = COLDMGM2;
          fire_type = FIRETYPEMSSL;
          break;
+      case TYPEM3:
+         icon_path = ICONM3;
+         h = HEIGHTM3;
+         w = WIDTHM3;
+	 target.w = WIDTHM3;
+         health = HEALTHM3;
+         target.health = HEALTHM3;
+         speed = SPEEDM3;
+         fire_interval = FIREINTVM3;
+         collision_damage = COLDMGM3;
+         fire_type = FIRETYPEPJTL;
+         break;
       default:
          icon_path = ICONM1;
          h = HEIGHTM1;
@@ -63,6 +75,7 @@ Target *Enemy::getTarget(void) {
 void Enemy::move(void){
    movement_counter++;
    /* MAX_SLOW is 10, which is the minimum speed (1 pixel every 10 move calls) */
+   /* speed must not exceed max slow */
    int slow = MAX_SLOW - speed;
    if(movement_counter % slow == 0) {
       if(movement == 1) {
@@ -114,6 +127,13 @@ EnemyProjectile *Enemy::fire_projectile(void) {
           if(type == TYPEM1) {
              proj_direction = fire_counter % 3;
           }
+	  if(type == TYPEM3) {
+             if(posx > SCREEN_WIDTH) {
+                proj_direction = 0; // shoots to the left side of screen
+	     } else {
+	        proj_direction = 2; // shoot to the right side of screen
+	     }
+          }	
           fire_counter++; 
           return new EnemyProjectile(posx + getWidth()/2, 
                                      posy + getHeight(),  

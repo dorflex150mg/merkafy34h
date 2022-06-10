@@ -19,6 +19,8 @@
 #include "building_pos_data.h"
 #include "game_controls.h"
 
+#define ANGLE_INTERVAL		5	
+
 #define MAXPJTL			65536
 #define MAXBDNG			1024
 #define MAXENMY			1024
@@ -41,6 +43,11 @@ SDL_Window *window = NULL;
 SDL_Surface *surface = NULL;
 SDL_Renderer *renderer = NULL;
 SDL_Texture *img_ship = NULL;
+SDL_Texture *img_shipc = NULL;
+SDL_Texture *img_shipl = NULL;
+SDL_Texture *img_shipr = NULL;
+SDL_Texture *img_cur_bg= NULL;
+SDL_Texture *img_next_bg = NULL;
 
 /*SDL_mixer data structures */
 Mix_Music *themes[NLEVELS] = {nullptr};
@@ -69,8 +76,11 @@ SDL_Rect building_rects[MAXBDNG];
 SDL_Rect projectile_rects[MAXPJTL];
 SDL_Rect enemy_projectile_rects[MAXPJTL];
 SDL_Rect enemy_missile_rects[MAXMSSL];
+SDL_Rect enemy_missile_rect_copies[MAXMSSL]; // They need to be swapped
 SDL_Rect boss_rect;
 SDL_Rect laser_rect;
+SDL_Rect cur_bg_rect;
+SDL_Rect next_bg_rect;
 
 /* drawable surfaces for each entity */
 SDL_Texture *enemy_imgs[MAXENMY];
@@ -79,6 +89,7 @@ SDL_Texture *projectile_imgs[MAXPJTL];
 SDL_Texture *enemy_projectile_imgs[MAXPJTL];
 SDL_Texture *enemy_missile_imgs[MAXMSSL];
 SDL_Texture *boss_img;
+SDL_Texture *bg1;
 
 
 /*drawable surfaces for each boss */
@@ -101,6 +112,8 @@ SDL_Texture *hitTextures[NFRAMESEXPLOSION];
 /* info rectangles */
 SDL_Rect margin_health_bar;
 SDL_Rect inner_health_bar;
+SDL_Rect margin_laser_bar;
+SDL_Rect inner_laser_bar;
 
 Level *levels[MAXLVL];
 Level *cur_level;
@@ -122,6 +135,9 @@ int imgs_index;
 long frame_cnt;
 
 bool laser_firing = false;
+bool ship_center = true;
+bool ship_right = false;
+bool ship_left = false;
 
 void init_animations() {
    small_explosion = IMG_LoadTexture(renderer, SMALLEXPLOSIONPATH);
@@ -252,17 +268,12 @@ void building_fire(Building *building, int ship_posx, int ship_posy) {
          n_enemy_projectiles++;
        } 
    } else if(building->getFireType() == FIREMSSLTYPE) {
-      printf("%s\n", "building fire missile");
       EnemyMissile *missile = building->fireMissile();
       if(missile != nullptr) {
-         printf("%s\n", "building missile has been fired");
          enemyMissiles[n_enemy_missiles % MAXMSSL] = missile;
-         printf("%s\n", "building missile added to array");
          enemy_missile_imgs[n_enemy_missiles % MAXMSSL] = IMG_LoadTexture(renderer, missile->icon_path);
-         printf("%s\n", "building missile image rendered");
          enemy_missile_rects[n_enemy_missiles % MAXMSSL].w = missile->getWidth();
          enemy_missile_rects[n_enemy_missiles % MAXMSSL].h = missile->getHeight();
-         printf("%s\n", "missile rect added");
          n_enemy_missiles++;
       }
    } 
@@ -290,19 +301,33 @@ void draw_target(const char *icon_path, SDL_Texture *img_target, SDL_Rect *p_rec
    SDL_RenderCopy(renderer, img_target, NULL, p_rect);
 }
 
+void draw_rotate_target(SDL_Texture *img_target, SDL_Rect *p_rect_src, SDL_Rect *p_rect_dst, const double angle, SDL_Point *center) {
+   /* src must be saved from last update. dst must be calculated */
+   SDL_RenderCopyEx(renderer, img_target, p_rect_src, p_rect_dst, angle, center, SDL_FLIP_NONE); 
+}
+
 void draw_projectile(SDL_Texture *img_projectile, SDL_Rect *p_rect) {
    SDL_RenderCopy(renderer, img_projectile, NULL, p_rect);
 }
 
 void draw_info_components(){
+    /* drawing health bar */
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDrawRect(renderer, &margin_health_bar);
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
     SDL_RenderFillRect(renderer, &inner_health_bar);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    /* drawing laser bar */
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawRect(renderer, &margin_laser_bar);
+    SDL_SetRenderDrawColor(renderer, 255, 153, 51, 255); //orange
+    SDL_RenderFillRect(renderer, &inner_laser_bar);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+     
 }
 
 void init_info_components(){
+   /* initializing health rect */
    margin_health_bar.x = MARGINHEALTHBARX;
    margin_health_bar.y = MARGINHEALTHBARY;
    margin_health_bar.w = MARGINHEALTHBARW;
@@ -312,6 +337,17 @@ void init_info_components(){
    inner_health_bar.y = INNERHEALTHBARY;
    inner_health_bar.w = INNERHEALTHBARW;
    inner_health_bar.h = INNERHEALTHBARH;
+
+   /* initializing laser rect */
+   margin_laser_bar.x = MARGINLASERBARX;
+   margin_laser_bar.y = MARGINLASERBARY;
+   margin_laser_bar.w = MARGINLASERBARW;
+   margin_laser_bar.h = MARGINLASERBARH;
+   
+   inner_laser_bar.x = INNERLASERBARX;
+   inner_laser_bar.y = INNERLASERBARY;
+   inner_laser_bar.w = INNERLASERBARW;
+   inner_laser_bar.h = INNERLASERBARH;
 }
     
 void init_levels() {
@@ -430,7 +466,7 @@ inline void checkHitBoss(Projectile *p, Boss *boss) {
     }
 }
 
-inline int checkLaserHitTarget(Target *targets[], int posx, LaserGun laser_gun) {
+inline int checkLaserHitTarget(Target *targets[], int posx, LaserGun *laser_gun) {
    for(int i = 0; i < MAXTARGETSSIZE; i++) { 
       if(targets[i] != nullptr) {
 	 printf("laser target being checked - laser x: %d, targetx: %d, target end: %d\n", posx, targets[i]->getPosx(), targets[i]->getPosx() + targets[i]->getWidth());
@@ -438,7 +474,7 @@ inline int checkLaserHitTarget(Target *targets[], int posx, LaserGun laser_gun) 
            posx < targets[i]->getPosx() + 
            targets[i]->getWidth()) { 
 	      printf("target found - laser ends at %d\n", targets[i]->getPosy());
-              targets[i]->takeDamage(laser_gun.getDamage()); 
+              targets[i]->takeDamage(laser_gun->getDamage()); 
               /* if a target has been hit, end the loop returning 
                * the targets x */
               return targets[i]->getPosy();
@@ -449,10 +485,34 @@ inline int checkLaserHitTarget(Target *targets[], int posx, LaserGun laser_gun) 
    return 0;
 }
    
+void copy_rect(SDL_Rect src, SDL_Rect dst) {
+   dst.w = src.w;
+   dst.h = src.h;
+   dst.x = src.x;
+   dst.y = src.y;
+}
 
       
 
 void update(Ship *ship, SDL_Rect *ship_rect){
+   frame_cnt++;
+   /* updating background */
+   //TODO: update all backgrouds. Backgrounds will be updated according 
+   //to their own update methods.
+   cur_level->getCurBg()->y++;
+   cur_level->getNextBg()->y++;
+   if(cur_level->getCurBg()->y == SCREEN_HEIGHT) {
+      cur_level->getCurBg()->y = -SCREEN_HEIGHT;
+   }
+   if(cur_level->getNextBg()->y == SCREEN_HEIGHT) {
+      cur_level->getNextBg()->y = -SCREEN_HEIGHT;
+   }
+   cur_bg_rect.x = cur_level->getCurBg()->x; //we may want to update horizotally
+   next_bg_rect.x = cur_level->getNextBg()->x;
+   cur_bg_rect.y = cur_level->getCurBg()->y;
+   next_bg_rect.y = cur_level->getNextBg()->y;
+
+   
    /* updating incoming buildings */
    for(int i = 0; i < cur_level->getnBuildings(); i++) {
       struct buildings_pos_t *cur_buildings_pos = get_buildings_pos(cur_level->getLevel()); 
@@ -475,15 +535,12 @@ void update(Ship *ship, SDL_Rect *ship_rect){
    for(int i = 0; i < n_buildings; i++) {
       if(buildings[i] != nullptr) {
          if(buildings[i]->active){
-            printf("%s\n", "active building - setting rects");
             building_rects[i].x = buildings[i]->getPosx();       
             building_rects[i].y = buildings[i]->getPosy();
             /* checking whether any buildings have fired.
             if so, gets what kind of weapon and treats it
             appropriately */
-            printf("%s\n", "active building - firing");
             building_fire(buildings[i], ship->getPosx(), ship->getPosy()); 
-            printf("%s\n", "active building - checking out of screen");
             if(buildings[i]->getPosy() > SCREEN_HEIGHT) {
                buildings[i]->active = false;
             }
@@ -585,11 +642,15 @@ void update(Ship *ship, SDL_Rect *ship_rect){
       int y = checkLaserHitTarget(all_targets, ship->posx, ship->getLaserGun());
       laser_rect.x = ship->getPosx();
       laser_rect.y = y;
-      laser_rect.w = ship->getLaserGun().getWidth();
+      laser_rect.w = ship->getLaserGun()->getWidth();
       laser_rect.h = ship->getPosy() - y;
+      ship->getLaserGun()->decreaseCharge();
+   } else {
+      if(frame_cnt % 5 == 0) {
+         ship->getLaserGun()->increaseCharge();
+      }
    }
-   
-
+      
    /* updating enemy projectiles */
    for(int i = 0; i < n_enemy_projectiles; i++){
       if(enemyProjectiles[i]->active){
@@ -610,6 +671,17 @@ void update(Ship *ship, SDL_Rect *ship_rect){
    for(int i = 0; i < n_enemy_missiles; i++) {
       if(enemyMissiles[i]->active) {
          enemyMissiles[i]->move(ship->getCenterPosx(), ship->getCenterPosy());
+	 if(frame_cnt % ANGLE_INTERVAL == 0) {
+	    printf("calculating\n");
+	    copy_rect(enemy_missile_rects[i], enemy_missile_rect_copies[i]); // saves last rect
+	    enemyMissiles[i]->calculateAngle(ship->getCenterPosx(), ship->getCenterPosy());
+	    printf("calculated angle %d\n", enemyMissiles[i]->getAngle());
+	    
+	    //enemy_missile_rects[i].w = enemyMissiles[i]->calculateRectWidth();
+	    //printf("calculated width %d\n", enemy_missile_rects[i].w);
+	    //enemy_missile_rects[i].h = enemyMissiles[i]->calculateRectHeight();
+	    //printf("calculated height %d\n", enemy_missile_rects[i].h);
+	 }
          enemy_missile_rects[i].x = enemyMissiles[i]->getPosx();
          enemy_missile_rects[i].y = enemyMissiles[i]->getPosy();
          /* checking for missile collisions -
@@ -662,9 +734,19 @@ void update(Ship *ship, SDL_Rect *ship_rect){
       inner_health_bar.h = 0;
       inner_health_bar.y = INNERHEALTHBARY + INNERHEALTHBARH;
    }
-
+   /* updating laser bar */
+   //printf("laser charge: %d\n", ship->getLaserGun()->getCharge());
+   float laser_bar_ratio = float(ship->getLaserGun()->getCharge())/100;
+   //printf("laser bar ratio: %f\n", laser_bar_ratio);
+   inner_laser_bar.y = INNERLASERBARY  + int((1 - laser_bar_ratio) * INNERLASERBARH);
+   inner_laser_bar.h = int(laser_bar_ratio * INNERLASERBARH);
+   //printf("laser bar height: %d\n", inner_laser_bar.h);
+   if(inner_laser_bar.h < 0) {
+      inner_laser_bar.h = 0;
+      inner_laser_bar.y = INNERLASERBARY + INNERLASERBARH;
+   }
+   
    /* checking if level has finished. Updating level if so */
-      
    if(frame_cnt % FRAMERULE == 0) {
       if(cur_level->isBossLevel()) {
          if(boss->isDead()) {
@@ -685,6 +767,9 @@ void update(Ship *ship, SDL_Rect *ship_rect){
 
 void draw(SDL_Renderer *renderer, SDL_Surface *surface, SDL_Rect *ship_rect, SDL_Window *window){
    SDL_RenderClear(renderer);
+   SDL_RenderCopy(renderer, img_cur_bg, NULL, &cur_bg_rect);
+   SDL_RenderCopy(renderer, img_next_bg, NULL, &next_bg_rect);
+
    if(laser_firing) {
       SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF );  
       SDL_RenderFillRect(renderer, &laser_rect);
@@ -724,7 +809,10 @@ void draw(SDL_Renderer *renderer, SDL_Surface *surface, SDL_Rect *ship_rect, SDL
    for(int i = 0; i < n_enemy_missiles; i++) {
       if(enemyMissiles[i] != nullptr) {
          if(enemyMissiles[i]->active) {
-            draw_target(enemyMissiles[i]->icon_path, enemy_missile_imgs[0], &enemy_missile_rects[i]);
+            SDL_Point center = {enemyMissiles[i]->getCenterPosx(), enemyMissiles[i]->getCenterPosy()};
+            //draw_target(enemyMissiles[i]->icon_path, enemy_missile_imgs[0], &enemy_missile_rects[i]);
+	    //draw_rotate_target(enemy_missile_imgs[0], &enemy_missile_rect_copies[i], &enemy_missile_rects[i], enemyMissiles[i]->getAngle(), &center);  
+	    draw_rotate_target(enemy_missile_imgs[0], NULL, &enemy_missile_rects[i], enemyMissiles[i]->getAngle(), NULL);  
          }
       }
    }
@@ -805,7 +893,11 @@ int main(int argc, char* args[]) {
    }
   
    /* initializing ship */ 
-   img_ship = IMG_LoadTexture(renderer, ship.getIconPath());
+   img_shipc = IMG_LoadTexture(renderer, ship.getIconPath());
+   img_shipl = IMG_LoadTexture(renderer, ship.getIconPathLeft());
+   img_shipr = IMG_LoadTexture(renderer, ship.getIconPathRight());
+   img_ship = img_shipc;
+
    ship.setStartPosition();
    ship_rect.w = ship.getWidth();
    ship_rect.h = ship.getHeight(); 
@@ -821,15 +913,48 @@ int main(int argc, char* args[]) {
    init_enemies(cur_level->getLevel());
    init_info_components();
    init_animations();
-   printf("animations initialized");
+   printf("animations initialized\n");
+   
+   /* initializing background */
+   //TODO: initializing all backgrounds
+   img_cur_bg = IMG_LoadTexture(renderer, cur_level->getCurBg()->getPath());
+   printf("bg icon path: %s\n", cur_level->getCurBg()->getPath());
+   img_next_bg = IMG_LoadTexture(renderer, cur_level->getNextBg()->getPath());
+   cur_level->getCurBg()->w = SCREEN_WIDTH;
+   cur_level->getCurBg()->h = SCREEN_HEIGHT;
+   cur_level->getCurBg()->x = 0;
+   cur_level->getCurBg()->y = 0;
+
+   cur_bg_rect.w = SCREEN_WIDTH;
+   cur_bg_rect.h = SCREEN_HEIGHT;
+   cur_bg_rect.x = 0;
+   cur_bg_rect.y = 0;
+
+
+
+   cur_level->getNextBg()->w = SCREEN_WIDTH;
+   cur_level->getNextBg()->h = SCREEN_HEIGHT;
+   cur_level->getNextBg()->x = 0;
+   cur_level->getNextBg()->y = -SCREEN_HEIGHT;
+
+
+   next_bg_rect.w = SCREEN_WIDTH;
+   next_bg_rect.h = SCREEN_HEIGHT;
+   next_bg_rect.x = 0;
+   next_bg_rect.y = -SCREEN_HEIGHT;
+   
+   printf("rendering bg\n");
+   SDL_RenderCopy(renderer, img_cur_bg, NULL, &cur_bg_rect);
+   SDL_RenderCopy(renderer, img_next_bg, NULL, &next_bg_rect);
    
    themes[cur_level->getLevel()] = Mix_LoadMUS(cur_level->getThemePath());
 
    while(!quit) {
-      frame_cnt++;
       SDL_Event e;
       const Uint8 *keyboard_state_array = SDL_GetKeyboardState(NULL);
       while(SDL_PollEvent(&e)) {
+	 ship_right = false;
+	 ship_left = false;
          if (keyboard_state_array[SDL_SCANCODE_UP]) {
             ship.goUp();
          }
@@ -838,9 +963,13 @@ int main(int argc, char* args[]) {
          }
          if (keyboard_state_array[SDL_SCANCODE_RIGHT]) {
             ship.goRight();
+	    img_ship = img_shipr;
+	    ship_right = true;
          }
          else if (keyboard_state_array[SDL_SCANCODE_LEFT]) {
             ship.goLeft();
+	    img_ship = img_shipl;
+	    ship_left = true;
          }
          else if (keyboard_state_array[SDL_SCANCODE_ESCAPE]) {
             quit = true;
@@ -852,13 +981,19 @@ int main(int argc, char* args[]) {
 	 if(keyboard_state_array[SDL_SCANCODE_LALT]) {
             printf("Detected laser button press\n");
 	    if(ship.hasLaserGun()) {
-               printf("Setting laser firing to true\n");
-	       laser_firing = true;
+	       if(ship.getLaserGun()->fireable()) { 
+                  printf("Setting laser firing to true\n");
+	          laser_firing = true;
+	       }
 	    }
 	 }
 
 	 if(keyboard_state_array[SDL_SCANCODE_M]) {
 	    switch_sound();
+	 }
+	 ship_center = !ship_right && !ship_left;
+	 if(ship_center) {
+	    img_ship = img_shipc;
 	 }
       }
       play_theme();

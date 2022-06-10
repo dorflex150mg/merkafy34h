@@ -45,6 +45,7 @@ int Building::getFireType(void) {
    } else if(type == TYPEAAGUN) {
       return FIRETYPEPTJL;
    }
+   return 2;
 }
 
 EnemyMissile *Building::fireMissile(void){ 
@@ -88,4 +89,5 @@ EnemyProjectile *Building::fireProjectile(int ship_posx, int ship_posy){
       default:
          return nullptr;
    }
+   return nullptr;
 }

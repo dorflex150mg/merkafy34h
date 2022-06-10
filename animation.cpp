@@ -73,7 +73,6 @@ void Animation::updateFrame(void){
    }
    if(type == TYPEHIT) {
       if(call_cnt % CALLSPERFRAMEHIT == 0) { 
-         printf("hit frame updated\n");
          cur_frame++;
       }
    }

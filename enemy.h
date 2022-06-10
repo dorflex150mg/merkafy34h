@@ -8,6 +8,7 @@
 
 #define ICONM1		"assets/m1.png"		
 #define ICONM2		"assets/m2.png"
+#define ICONM3		"assets/m3.png"
 
 #define MAX_SLOW	10
 
@@ -28,6 +29,15 @@
 #define HEIGHTM2	60
 #define COLDMGM2	30
 #define FIREINTVM2	100
+
+#define TYPEM3		3
+#define HEALTHM3	40
+#define SPEEDM3		9
+#define WIDTHM3		48
+#define HEIGHTM3	60
+#define COLDMGM3	30
+#define FIREINTVM3	20
+
 
 #define FIRETYPEPJTL	1
 #define FIRETYPEMSSL	2
